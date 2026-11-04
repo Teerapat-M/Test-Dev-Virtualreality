@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
+import "./App.css";
+import { sampleEntries, START_TIME } from "./data/sampleEntries";
 import { buildFrontRowUpgradeQueue } from "./logic/buildQueue";
 import type { ScoringMode, TicketQueueEntry } from "./logic/types";
-import { sampleEntries, START_TIME } from "./data/sampleEntries";
-import "./App.css";
 
 const STEPS = [
   { label: "+5 min", ms: 5 * 60_000 },

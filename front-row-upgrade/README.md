@@ -1,114 +1,114 @@
 # Front Row Ticket Upgrade Challenge
 
-A deterministic queue that picks one fan to receive a front-row upgrade, while stopping one person with multiple accounts from taking more than one chance.
+ระบบคิวสำหรับเลือกแฟนคลับ 1 คนให้ได้อัปเกรดเป็นที่นั่งแถวหน้า ผลลัพธ์แน่นอนทุกครั้ง (deterministic) และกันไม่ให้คนเดียวที่มีหลายบัญชีได้โอกาสมากกว่า 1 ครั้ง
 
-## Run the project
+## วิธีรันโปรเจกต์
 
 ```bash
 npm install
-npm run dev     # open the URL Vite prints (usually http://localhost:5173)
-npm test        # run all Vitest tests
+npm run dev     # เปิด URL ที่ Vite แสดง (ปกติคือ http://localhost:5173)
+npm test        # รัน test ทั้งหมดด้วย Vitest
 ```
 
-## Project structure
+## โครงสร้างโปรเจกต์
 
-| File | Purpose |
+| ไฟล์ | หน้าที่ |
 | --- | --- |
-| `src/logic/types.ts` | Data types |
-| `src/logic/eligibility.ts` | Exclusion rules and ticket value parsing |
+| `src/logic/types.ts` | ชนิดข้อมูล (types) |
+| `src/logic/eligibility.ts` | กฎการคัดออก และการแปลงค่าราคาตั๋ว |
 | `src/logic/unionFind.ts` | Union-find (path compression + union by rank) |
-| `src/logic/grouping.ts` | Groups entries that share phone, deviceId, or payment account |
-| `src/logic/scoring.ts` | Priority score, mode weights, tie-break comparator |
+| `src/logic/grouping.ts` | จัดกลุ่มรายการที่ใช้เบอร์โทร, deviceId หรือบัญชีชำระเงินร่วมกัน |
+| `src/logic/scoring.ts` | คะแนนความสำคัญ, ค่าน้ำหนักของแต่ละโหมด, ตัวเปรียบเทียบตอนคะแนนเท่ากัน |
 | `src/logic/buildQueue.ts` | `buildFrontRowUpgradeQueue(entries, now, mode)` |
-| `src/logic/__tests__/buildQueue.test.ts` | 11 tests |
-| `src/App.tsx` | UI: winner, top 3, groups, excluded, time buttons, loyalty editing, modes |
+| `src/logic/__tests__/buildQueue.test.ts` | test 11 ตัว |
+| `src/App.tsx` | หน้า UI: ผู้ชนะ, 3 อันดับแรก, กลุ่มแฟน, รายการที่ถูกคัดออก, ปุ่มเลื่อนเวลา, แก้ loyalty, เปิดปิดโหมด |
 
-## Exclusion rules
+## กฎการคัดออก
 
-An entry cannot win if any of these apply. All matching reasons are listed, not only the first one.
+รายการที่เข้าข้อใดข้อหนึ่งต่อไปนี้จะไม่มีสิทธิ์ชนะ ถ้าเข้าหลายข้อจะแสดงเหตุผลครบทุกข้อ ไม่ใช่แค่ข้อแรก
 
-- Status is `cancelled`
-- Status is `upgraded` (already upgraded)
-- Membership is `blocked`
-- The concert has already started (`now >= eventStartsAt`) or the start time is invalid
-- Ticket value is invalid, zero, or negative. It accepts `number`, numeric `string` (commas allowed), or `null`.
+- สถานะเป็น `cancelled`
+- สถานะเป็น `upgraded` (เคยได้อัปเกรดไปแล้ว)
+- membership เป็น `blocked`
+- คอนเสิร์ตเริ่มไปแล้ว (`now >= eventStartsAt`) หรือเวลาเริ่มไม่ถูกต้อง
+- ราคาตั๋วไม่ถูกต้อง เป็นศูนย์ หรือติดลบ ระบบรับค่าได้ทั้ง `number`, `string` ที่เป็นตัวเลข (มีจุลภาคได้) และ `null`
 
 ## Tests
 
-The suite has 11 tests:
+มี test ทั้งหมด 11 ตัว
 
-- the 7 tests required by the spec
-- 3 edge cases of my own:
-  - empty or null values never link accounts
-  - a 50-account group produces only one candidate
-  - ties break by `joinedQueueAt`, then `id`
-- 1 performance test: 200,000 entries finish in under 5 seconds
+- test ตามที่โจทย์กำหนด 7 ตัว
+- edge case ที่คิดเพิ่มเอง 3 ตัว
+  - ค่าว่างหรือ null จะไม่เชื่อมบัญชีเข้าด้วยกัน
+  - กลุ่มที่มี 50 บัญชีส่งตัวแทนได้แค่ 1 คน
+  - ถ้าคะแนนเท่ากัน ตัดสินด้วย `joinedQueueAt` ก่อน แล้วค่อยดู `id`
+- test ความเร็ว 1 ตัว: ข้อมูล 200,000 รายการต้องทำเสร็จภายใน 5 วินาที
 
-## README questions
+## คำตอบคำถามใน README
 
 ### 1. How does your priority score work?
 
 ```
 score = min(waitMinutes, 720) × W
       + loyaltyPoints × 0.1
-      + (membership is VIP ? V : 0)
+      + (เป็น VIP ? V : 0)
       − upgradesLast30Days × P
 ```
 
-Default weights are **W = 1, V = 30, P = 60**.
+ค่าปกติคือ **W = 1, V = 30, P = 60**
 
-- **Waiting time is the main factor.** `waitMinutes = now − joinedQueueAt`. It is capped at 720 minutes (12 hours), so someone who joined days earlier cannot dominate every other factor.
-- **Loyalty** gives a small bonus. 1,000 points equal 100 minutes of waiting.
-- **VIP** gives a small bonus, equal to 30 minutes of waiting.
-- **Recent upgrades** are a penalty. Each upgrade in the last 30 days costs 60 points, about one hour of waiting, so seats rotate to different fans. Only the last 30 days count, so the penalty does not last forever.
-- **Null values count as 0.** A missing membership is treated as regular.
-- **Ticket value is used only for eligibility, not for score.** Fans who paid more should not automatically win a free upgrade.
-- **Every score comes with reasons**, for example "Waited 180 min: +180", which the UI shows.
+- **เวลารอคือปัจจัยหลัก** คำนวณจาก `waitMinutes = now − joinedQueueAt` และตั้งเพดานไว้ที่ 720 นาที (12 ชั่วโมง) เพื่อไม่ให้คนที่เข้าคิวไว้ก่อนหลายวันมีคะแนนสูงจนปัจจัยอื่นไม่มีผล
+- **Loyalty** ให้โบนัสเล็กน้อย 1,000 คะแนนเท่ากับการรอ 100 นาที
+- **VIP** ให้โบนัสเล็กน้อย เท่ากับการรอ 30 นาที
+- **การเคยได้อัปเกรดคือค่าปรับ** ทุกครั้งที่ได้อัปเกรดใน 30 วันล่าสุดจะถูกหัก 60 คะแนน หรือประมาณการรอ 1 ชั่วโมง เพื่อให้ที่นั่งเวียนไปถึงหลายคน นับแค่ 30 วันล่าสุด จึงไม่ได้ลงโทษตลอดไป
+- **ค่า null นับเป็น 0** และถ้าไม่มี membership จะนับเป็น regular
+- **ราคาตั๋วใช้แค่ตัดสินสิทธิ์ ไม่ได้เอามาคิดคะแนน** เพราะคนที่จ่ายแพงกว่าไม่ควรได้อัปเกรดฟรีเสมอไป
+- **ทุกคะแนนมีเหตุผลกำกับ** เช่น "Waited 180 min: +180" และแสดงให้เห็นในหน้า UI
 
 ### 2. How do you stop one fan group from dominating?
 
-- Entries that share a phone number (digits only), deviceId, or payment account belong to the same fan group. Indirect links count too: if A shares a phone with B, and B shares a device with C, then A, B, and C are one group.
-- **Each group sends only one representative:** its highest-scoring eligible entry. The winner is chosen among representatives only, so 50 accounts still get just one chance.
-- **Blocked or excluded entries still link their group.** Blocking removes only that entry's chance; it does not split the group. Otherwise a blocked account could become a bridge that gives the linked accounts two chances instead of one.
+- รายการที่ใช้เบอร์โทร (เอาแค่ตัวเลข), deviceId หรือบัญชีชำระเงินร่วมกันจะอยู่กลุ่มเดียวกัน รวมถึงการเชื่อมทางอ้อมด้วย เช่น A ใช้เบอร์เดียวกับ B และ B ใช้เครื่องเดียวกับ C ทั้ง A, B, C จะเป็นกลุ่มเดียวกัน
+- **แต่ละกลุ่มส่งตัวแทนได้คนเดียว** คือคนที่มีสิทธิ์และได้คะแนนสูงสุดในกลุ่ม ผู้ชนะจะเลือกจากตัวแทนเท่านั้น ต่อให้มี 50 บัญชีก็ได้โอกาสแค่ครั้งเดียว
+- **บัญชีที่ถูกบล็อกหรือถูกคัดออกยังเชื่อมกลุ่มไว้** การบล็อกตัดสิทธิ์แค่บัญชีนั้น ไม่ได้แยกกลุ่ม ไม่อย่างนั้นบัญชีที่ถูกบล็อกซึ่งเป็นตัวเชื่อมอยู่จะทำให้บัญชีที่เหลือแตกเป็นสองกลุ่ม และได้โอกาส 2 ครั้งแทนที่จะเป็นครั้งเดียว
 
 ### 3. How do you break ties?
 
-1. Higher score
-2. Earlier `joinedQueueAt` (invalid dates go last)
-3. Smaller `id` (string comparison)
+1. คะแนนสูงกว่าชนะ
+2. ถ้าคะแนนเท่ากัน ดูว่าใครเข้าคิว (`joinedQueueAt`) ก่อน วันที่ที่ไม่ถูกต้องจะอยู่ท้ายสุด
+3. ถ้ายังเท่ากันอีก ดู `id` ที่น้อยกว่า (เปรียบเทียบแบบ string)
 
-The same comparator picks both each group's representative and the overall winner. The function never uses randomness, and `now` is passed in as a parameter, so the same input always gives the same output. The input array is never mutated.
+ใช้ตัวเปรียบเทียบตัวเดียวกันทั้งตอนเลือกตัวแทนกลุ่มและตอนเลือกผู้ชนะ ฟังก์ชันไม่ใช้การสุ่ม และรับ `now` เป็นพารามิเตอร์ ข้อมูลเหมือนเดิมจึงได้ผลเหมือนเดิมทุกครั้ง และไม่แก้ไข array ที่รับเข้ามา
 
 ### 4. What is the time complexity of your grouping logic?
 
-**O(n · α(n)), effectively O(n).** Whole pipeline: **O(n log n)**, from the final sort.
+**การจัดกลุ่มเป็น O(n · α(n)) ซึ่งในทางปฏิบัติเท่ากับ O(n)** ส่วนทั้งระบบเป็น **O(n log n)** จากการเรียงลำดับตอนท้าย
 
-- One pass over the entries. For each non-empty key (`phone:0812345678`, `device:...`, `payment:...`), a `Map` stores the first entry index that had it. When a later entry has the same key, the two entries are unioned.
-- Union-find uses path compression and union by rank, so each operation is nearly constant (α is the inverse Ackermann function).
-- No pairwise comparison (which would be O(n²)). The performance test runs 200,000 entries in under 5 seconds.
+- วนรอบรายการเพียงรอบเดียว สำหรับแต่ละ key ที่ไม่ว่าง (`phone:0812345678`, `device:...`, `payment:...`) จะใช้ `Map` เก็บ index ของรายการแรกที่มี key นั้น ถ้าเจอรายการหลังที่มี key เดียวกันก็ union สองรายการเข้าด้วยกัน
+- Union-find ใช้ path compression และ union by rank แต่ละครั้งจึงใช้เวลาเกือบคงที่ (α คือ inverse Ackermann function)
+- ไม่ต้องเทียบทุกคู่ซึ่งจะเป็น O(n²) และ test ความเร็วรันข้อมูล 200,000 รายการเสร็จภายใน 5 วินาที
 
 ### 5. What is one case where your system may still feel unfair?
 
-- **Shared devices.** If fans buy at the same counter kiosk, they share a `deviceId` and get merged into one group even though they are strangers. Only one of them can win.
-- **Separate identifiers.** Someone who uses different phones, devices, and payment accounts for each account cannot be detected.
-- **Early queue joiners.** Fans who join long before others still get an advantage, up to the 720-minute cap.
+- **อุปกรณ์ที่ใช้ร่วมกัน** ถ้าหลายคนซื้อตั๋วที่ตู้เคาน์เตอร์เดียวกัน จะมี `deviceId` เดียวกันและถูกรวมเป็นกลุ่มเดียว ทั้งที่ไม่รู้จักกัน สุดท้ายจะชนะได้แค่คนเดียว
+- **คนที่ใช้ข้อมูลไม่ซ้ำกันเลย** ถ้าคนหนึ่งใช้เบอร์ เครื่อง และบัญชีชำระเงินคนละชุดในแต่ละบัญชี ระบบจะจับไม่ได้
+- **คนที่เข้าคิวเร็วมาก** ยังได้เปรียบอยู่ จนกว่าจะถึงเพดาน 720 นาที
 
 ### 6. How do Rush Hour, VIP Hour, and Fair Queue Mode work?
 
-Each mode changes one weight in the formula. All weights live in `getWeights(mode)` in `scoring.ts`.
+แต่ละโหมดเปลี่ยนค่าน้ำหนักในสูตรแค่ตัวเดียว ค่าทั้งหมดอยู่ใน `getWeights(mode)` ในไฟล์ `scoring.ts`
 
-| Mode | Changes | Effect |
+| โหมด | สิ่งที่เปลี่ยน | ผลที่ได้ |
 | --- | --- | --- |
-| Rush Hour | W: 1 → **1.5** | Waiting time matters more |
-| VIP Hour | V: 30 → **60** | VIP bonus doubles |
-| Fair Queue | P: 60 → **150** | Recent upgrades are penalised harder |
+| Rush Hour | W: 1 → **1.5** | เวลารอมีผลมากขึ้น |
+| VIP Hour | V: 30 → **60** | โบนัส VIP เพิ่มเป็นสองเท่า |
+| Fair Queue | P: 60 → **150** | คนที่เพิ่งได้อัปเกรดถูกหักหนักขึ้น |
 
-**Modes can be combined.** They touch different weights, so they never conflict. For example, with all three on, a VIP who waited 90 minutes with 900 loyalty and no upgrades scores 90 × 1.5 + 90 + 60 = **285**.
+**เปิดหลายโหมดพร้อมกันได้** เพราะแต่ละโหมดแก้ค่าน้ำหนักคนละตัว จึงไม่ขัดกัน ตัวอย่างเช่น ถ้าเปิดครบทั้ง 3 โหมด คนที่เป็น VIP รอมา 90 นาที มี loyalty 900 และไม่เคยได้อัปเกรด จะได้ 90 × 1.5 + 90 + 60 = **285** คะแนน
 
 ### 7. What would you improve with more time?
 
-- **Kiosk device ignore list:** skip known shared/kiosk `deviceId`s when grouping.
-- **Concert history:** e.g. +10 per past concert purchase that did not receive an upgrade.
-- **Queue opening time:** with a `queueOpensAt` field, count waiting time from the opening, so fans who joined before it start equal.
-- **Configurable weights:** move the weights to an admin config and log every winner with its score breakdown for auditing.
-- **Backend:** run the logic on a server with persistent data instead of only in the browser.
+- **รายชื่อเครื่อง kiosk ที่ต้องข้าม** ไม่เอา `deviceId` ของเครื่องที่ใช้ร่วมกันหรือตู้เคาน์เตอร์มาเชื่อมกลุ่ม
+- **ประวัติคอนเสิร์ต** เช่น ให้ +10 คะแนนทุกครั้งที่เคยซื้อตั๋วคอนเสิร์ตแต่ไม่ได้อัปเกรด
+- **เวลาเปิดคิว** ถ้ามี field `queueOpensAt` จะเริ่มนับเวลารอจากตอนเปิดคิว คนที่เข้าก่อนเปิดจะได้เริ่มนับพร้อมกันหมด
+- **ปรับค่าน้ำหนักได้** ย้ายค่าน้ำหนักไปไว้ในหน้าตั้งค่าของแอดมิน และบันทึกผู้ชนะทุกครั้งพร้อมรายละเอียดคะแนนไว้ตรวจสอบย้อนหลัง
+- **Backend** ย้าย logic ไปรันบนเซิร์ฟเวอร์ที่เก็บข้อมูลถาวร แทนการรันในเบราว์เซอร์อย่างเดียว
