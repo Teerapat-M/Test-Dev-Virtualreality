@@ -4,8 +4,11 @@
 
 ## วิธีรันโปรเจกต์
 
+รันคำสั่งจากโฟลเดอร์ `front-row-upgrade/`
+
 ```bash
-npm install
+cd front-row-upgrade
+npm install     # หรือ npm ci
 npm run dev     # เปิด URL ที่ Vite แสดง (ปกติคือ http://localhost:5173)
 npm test        # รัน test ทั้งหมดด้วย Vitest
 ```

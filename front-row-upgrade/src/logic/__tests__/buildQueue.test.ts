@@ -80,6 +80,9 @@ describe("buildFrontRowUpgradeQueue", () => {
         const second = buildFrontRowUpgradeQueue([...entries].reverse(), NOW);
         expect(first.winner?.entry.id).toBe(second.winner?.entry.id);
         expect(JSON.stringify(entries)).toBe(snapshot);
+        const group = first.fanGroups.find((g) => g.representative?.entry.id === first.winner?.entry.id);
+        expect(first.winner?.reasons[0]).toMatch(/^Highest score among \d+ fan group\(s\)$/);
+        expect(group?.representative?.reasons[0]).not.toMatch(/^Highest score among /);
     });
 
     it("edge 1: empty values never connect accounts", () => {

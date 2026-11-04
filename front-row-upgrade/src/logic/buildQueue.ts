@@ -51,10 +51,10 @@ export function buildFrontRowUpgradeQueue(
         .filter((r): r is RankedEntry => r !== null)
         .sort(compareRanked);
 
-    const winner = candidates[0] ?? null;
-    if (winner) {
-        winner.reasons = [`Highest score among ${candidates.length} fan group(s)`, ...winner.reasons];
-    }
+    const top = candidates[0] ?? null;
+    const winner = top
+        ? { ...top, reasons: [`Highest score among ${candidates.length} fan group(s)`, ...top.reasons] }
+        : null;
 
     return { winner, candidates, fanGroups, excludedEntries };
 }

@@ -20,7 +20,8 @@ export default function App() {
 
   // สร้าง array ใหม่ทุกครั้ง ไม่แก้ object เดิม
   function updateLoyalty(id: string, value: string) {
-    const points = value === "" ? null : Number(value);
+    const parsed = Number(value);
+    const points = value.trim() === "" || !Number.isFinite(parsed) ? null : parsed;
     setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, loyaltyPoints: points } : e)));
   }
 
