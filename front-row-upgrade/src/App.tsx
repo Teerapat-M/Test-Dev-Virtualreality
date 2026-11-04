@@ -73,7 +73,7 @@ export default function App() {
         <h2>Fan groups ({fanGroups.length})</h2>
         {fanGroups.map((g) => (
           <div key={g.id} className="group">
-            <strong>{g.id}</strong>: {g.entries.map((e) => e.id).join(", ")}
+            <strong>{g.id}</strong>: {g.entries.map((e) => `${e.fanName} (${e.id})`).join(", ")}
             {" "}(representative: {g.representative ? g.representative.entry.id : "none eligible"})
             {g.connectionReasons.length > 0 && (
               <ul>{g.connectionReasons.map((r) => <li key={r}>{r}</li>)}</ul>
